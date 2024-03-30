@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>Pint/PintX Unlocker</title>
+        
+        <style>
+            body {
+                font-family: monospace;
+                background-color: #333;
+                margin: 0;
+            }
+
+            #console {
+                background-color: #0d1117;
+                color: rgb(233, 233, 233);
+                padding: 10px;
+                width: 100%;
+                height: 100%;
+                overflow-y: scroll;
+                overflow-wrap: break-word;
+                position: fixed;
+            }
+
+            #console > * {
+                margin: 3px 0;
+            }
+
+            #btnConnect {
+                display: block;
+                margin: 0 auto;
+                padding: 10px 20px;
+                font-size: 1.5em;
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+                cursor: pointer;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                transition: background-color 0.3s;
+                z-index: 1;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Starts the unlock process -->
+        <button id="btnConnect" type="button" onclick="onButtonClick()">Connect</button>
+
+        <!-- Pseudo console window logging -->
+        <div id="console"></div>
+          
+        <!-- The script below will allow entering FWU mode on any board with a 5100 firmware until the board is restarted. -->
+        <!-- We focused on making it as simple and easy to use as possible. The rest is up to you. Do as you wish with it. -->
+        <!-- The only wish we have is that you do not sell or put this tool behind a paywall. It belongs to the community. -->
+
+        <script async defer>
+            const consoleDiv = document.getElementById('console');
+
+            const log = (message, color) => {
+                const timestamp = new Date().toISOString();
+                const p = document.createElement('p');
+                p.style.color = color;
+
+                const txt = document.createTextNode(`[${timestamp}] ${message}`);
+                p.appendChild(txt);
+
+                consoleDiv.appendChild(p);
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            };
+
+            const logInfo = (message) => log(message, '#dbdbdb');
+            const logError = (message) => log(message, '#da3633');
+            const logSuccess = (message) => log(message, '#3fb950');
+            
+            const chunks = (array, size) => Array.from({ length: Math.ceil(array.length / size) }, (_, i) => array.slice(i * size, i * size + size));
+            const fromHex = (hex) => new Uint8Array(hex.match(/[\da-f]{2}/gi).map(byte => parseInt(byte, 16)));
+            const delayMs = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            const uuidBoard = 'e659f300-ea98-11e3-ac10-0800200c9a66'; // Board service
+            const uuidFwVer = 'e659f311-ea98-11e3-ac10-0800200c9a66'; // Firmware version
+            const uuidPerms = 'e659f31f-ea98-11e3-ac10-0800200c9a66'; // Permission bits
+            const uuidWrite = 'e659f3ff-ea98-11e3-ac10-0800200c9a66'; // Serial writes to board
+
+            // This magic blob was not extracted from firmware, not leaked, not retrieved through
+            // illegitimate means, not "accidentally found", you name it. It's a legitimate blob,
+            // it just happens to unlock any Pint / Pint X at any time instead of one board once.
+            const magicBlob = fromHex(`
+                09 8e 57
+                ce 56 5b 4f 83 90 38 b8 06 0e 4e 8f 1c 2f 8a 2e
+                d1 be ff ed 47 e0 13 41 e3 d7 e0 93 c6 c7 ce 15
+                c4 de 62 d1 5d 56 f6 1a aa b0 a1 d2 bf b8 c5 42
+                9f 24 3e 3b 19 4e c2 e2 f6 0c b1 c7 fc 22 6f de
+                e3 f5 2f 42 ac e2 6f 1d 13 2f 2a 02 dd ed ab 7e
+                6a 0a 90 7a 18 39 8a 80 c6 00 a4 5b 5b 32 07 88
+                e1 c7 e5 1d a9 eb 68 52 94 14 60 03 01 b9 4e e3
+                71 e6 78 9c a1 26 16 3b 5d 3f 9c 13 3f e7 5c f2
+                66 89 eb 44 f3 34 c6 a8 57 c2 54 e0 0c 37 1a 71
+                56 7c 69 5a bc df c8 bd cf 6f 5d 61 7c 20 af 6a
+                e6 7c 19 3d a9 82 88 d3 2f c1 a8 c0 88 41 d5 90
+                b5 b0 73 fa 25 27 61 d8 2d 51 cd 68 6a 88 af fa
+                9c f9 c1 13 fc 3c bd bd ab 46 45 a5 04 59 8f 07
+                99 80 8e 17 10 6a 11 b0 2c 1d db 02 d2 e9 13 3d
+                33 4d 34 a9 aa 28 ec 4e dc cd ce a3 d5 3f 8e fe
+                c8 2f 41 8f c2 75 2e a4 ac d3 86 31 61 39 fd 9a
+                13`);
+
+            async function onButtonClick() {
+                btnConnect.disabled = true;
+                btnConnect.style.display = 'none';
+
+                logInfo('Checking for Web Bluetooth support.');
+
+                if (!await navigator.bluetooth?.getAvailability()) {
+                    logError('Your browser does not support Web Bluetooth. Try Chrome/Edge, or if you\'re on iOS, Bluefy.');
+                    return;
+                }
+
+                try {
+                    logInfo('Waiting for user input.');
+
+                    const device = await navigator.bluetooth.requestDevice({
+                        filters: [{ namePrefix: "ow", services: [uuidBoard] }]
+                    });
+
+                    logInfo(`Connecting to ${device.name}.`);
+
+                    const server = await device.gatt.connect();
+
+                    logInfo('Requesting primary service.')
+
+                    const service = await server.getPrimaryService(uuidBoard);
+
+                    logInfo('Requesting characteristics.');
+
+                    const charArr = await service.getCharacteristics();
+
+                    const charFwVer = charArr.find(c => c.uuid === uuidFwVer);
+                    const charPerms = charArr.find(c => c.uuid === uuidPerms);
+                    const charWrite = charArr.find(c => c.uuid === uuidWrite);
+
+                    if (!charFwVer || !charPerms || !charWrite) {
+                        throw new Error('Missing characteristics.');
+                    }
+
+                    const fwVer = (await charFwVer.readValue()).getUint16();
+
+                    logInfo(`Board reports FW ${fwVer}.`);
+
+                    if (fwVer < 5000 || fwVer >= 6000)
+                        throw new Error('This tool only works with Pint / Pint X boards.');
+
+                    if (fwVer < 5100)
+                        throw new Error('Firmware older than 5100 do not need magic.');
+
+                    if (fwVer > 5100)
+                        throw new Error('Firmware newer than 5100 has not been tested.');
+
+                    logInfo('Sending authentication blob.');
+
+                    for (const chunk of chunks(magicBlob, 20)) {
+                        await charWrite.writeValueWithResponse(chunk);
+                    }
+
+                    logInfo('Waiting for board to respond.');
+
+                    let unlocked = false;
+                    for (let i = 0; i < 30; i++) {
+                        if (((await charPerms.readValue()).getUint16() & 4) != 0) {
+                            unlocked = true;
+                            break;
+                        }
+                        await delayMs(100);
+                    }
+
+                    if (unlocked) {
+                        logSuccess("Unlocked FWU mode, ready to flash!");
+                    } else {
+                        logError("Failed? Restart the board and try again.");
+                    }
+
+                    server.disconnect();
+                } catch (error) {
+                    logError(error.message);
+                }
+
+                btnConnect.disabled = false;
+                btnConnect.style.display = 'block';
+            }
+        </script>
+    </body>
+</html>

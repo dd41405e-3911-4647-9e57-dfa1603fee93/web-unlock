@@ -1,0 +1,24 @@
+on: [push]
+
+concurrency:
+  group: ref-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    name: Publish to Cloudflare Pages
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Publish to Cloudflare Pages
+      uses: cloudflare/pages-action@v1
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: 21324d878dfe42fbb7245fa39f9fc415
+        projectName: owtk
+        directory: publish
+        branch: ${{ github.ref_name }}
