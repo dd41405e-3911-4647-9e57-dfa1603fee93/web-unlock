@@ -21,3 +21,12 @@
   - No. It goes away if you restart your board.
 - Is it dangerous?
   - No. What you decide do in FWU afterwards most likely is, though.
+
+
+<div align="center">
+</br>
+
+https://github.com/dd41405e-3911-4647-9e57-dfa1603fee93/web-unlock/assets/1352092/707644e8-1187-4743-9bc0-1afed07ee1c1
+
+</br>
+</div>
