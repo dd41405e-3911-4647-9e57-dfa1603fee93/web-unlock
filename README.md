@@ -20,7 +20,7 @@
 - Is it permanent?
   - No. It goes away if you restart your board.
 - Is it dangerous?
-  - No. What you decide do in FWU afterwards most likely is, though.
+  - No. What you decide to do in FWU afterwards most likely is, though.
 
 
 <div align="center">
