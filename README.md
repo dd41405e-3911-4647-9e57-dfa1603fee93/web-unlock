@@ -11,7 +11,7 @@
 1. Open publish/index.html in your browser.
 1. Click the "Connect" button.
 1. Wait for it to finish.
-1. Flash just like you would've on older firmware, using ReWheel / ffmwheel / OWTK / you name it.
+1. Flash just like you would've on older firmware, using ReWheel / ffmwheel / you name it.
 
 ## FAQ
 
