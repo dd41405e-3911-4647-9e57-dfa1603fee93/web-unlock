@@ -144,6 +144,14 @@
                     const charPerms = charArr.find(c => c.uuid === uuidPerms);
                     const charWrite = charArr.find(c => c.uuid === uuidWrite);
 
+                    if (!charFwVer || !charPerms || !charWrite) {
+                        let log = "Missing characteristic(s): ";
+                        if (!charFwVer) log += "FwVersion ";
+                        if (!charPerms) log += "Permissions ";
+                        if (!charWrite) log += "SerialWrite ";
+                        throw new Error(log);
+                    }
+
                     if (!charFwVer) throw new Error('Missing characteristic: FW Version');
                     if (!charPerms) throw new Error('Missing characteristic: Permissions');
                     if (!charWrite) throw new Error('Missing characteristic: Serial Write');
