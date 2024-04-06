@@ -18,7 +18,7 @@
 - Does this actually work?
   - Yes.
 - Is it permanent?
-  - No. It goes away if you restart your board.
+  - No. It "locks" again if you restart your board while still on 5100.
 - Is it dangerous?
   - No. What you decide to do in FWU afterwards most likely is, though.
 
