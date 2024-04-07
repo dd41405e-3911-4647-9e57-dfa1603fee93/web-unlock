@@ -112,21 +112,22 @@
                 c8 2f 41 8f c2 75 2e a4 ac d3 86 31 61 39 fd 9a
                 13`);
 
-            const waitForBlVersion = (charError) => new Promise(resolve => {
-                charError.startNotifications();
-                charError.addEventListener('characteristicvaluechanged', (event) => {
-                    const errorCode = event.target.value.getUint16();
-                    if (((errorCode >> 8) & 0xFF) === 32) {
-                        resolve(errorCode & 0xFF);
-                    }
-                });
-
-                setTimeout(() => {
-                    if(blVersion === -1) {
-                        reject('Timeout waiting for blVersion');
-                    }
-                }, 15000);
-            });
+            const waitForBlVersion = (charError) => Promise.race([
+                    new Promise((resolve, reject) => {
+                        charError.startNotifications();
+                        charError.addEventListener('characteristicvaluechanged', (event) => {
+                            const errorCode = event.target.value.getUint16();
+                            if (((errorCode >> 8) & 0xFF) === 33) {
+                                resolve(errorCode & 0xFF);
+                            }
+                        });
+                    }),
+                    new Promise((resolve, reject) => {
+                        setTimeout(() => {
+                            reject(new Error('Timed out waiting for bootloader version'));
+                        }, 5000);
+                    })
+                ]);
 
             async function onButtonClick() {
                 btnConnect.disabled = true;
@@ -207,21 +208,26 @@
                     if (unlocked) {
                         logInfo('Checking bootloader version.');
 
-                        const blVer = await waitForBlVersion(charError);
-                        const isPint = 5000 <= hwVer && hwVer < 6000;
-                        
-                        if (
-                            !( isPint && blVer === 6) &&
-                            !(!isPint && blVer === 7)
-                        ) {
-                            logError(`Unexpected bootloader version ${blVer} for ${isPint ? 'Pint' : 'PintX'}.`);
-                            logError("Flashing this board might brick it. You have been warned!")
-                        } else  {
-                            logSuccess('Unlocked FWU mode, ready to flash!');
-                        }
+                        await waitForBlVersion(charError).then(async (blVer) => {
+                            const isPint = 5000 <= hwVer && hwVer < 6000;
+                            
+                            if (
+                                !( isPint && blVer === 6) &&
+                                !(!isPint && blVer === 7)
+                            ) {
+                                logError(`Unexpected bootloader version ${blVer} for ${isPint ? 'Pint' : 'PintX'}.`);
+                                logError("Flashing this board might brick it. You have been warned!")
+                            } else  {
+                                logSuccess('Unlocked FWU mode, ready to flash!');
+                            }
 
-                        // Send a keep alive to so the auth does not immediately expire
-                        charFwVer.writeValueWithResponse(new Uint16Array([fwVer]));
+                            // Send a keep alive to so the auth does not immediately expire
+                            await charFwVer.writeValueWithResponse(new Uint16Array([fwVer]))
+                        }).catch(error => {
+                            logError(error.message);
+                        });
+
+                        ;
                     } else {
                         logError("Failed? Restart the board and try again.");
                     }
