@@ -83,6 +83,7 @@
             const delayMs = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
             const uuidBoard = 'e659f300-ea98-11e3-ac10-0800200c9a66'; // Board service
+            const uuidHwVer = 'e659f318-ea98-11e3-ac10-0800200c9a66'; // Hardware version
             const uuidFwVer = 'e659f311-ea98-11e3-ac10-0800200c9a66'; // Firmware version
             const uuidPerms = 'e659f31f-ea98-11e3-ac10-0800200c9a66'; // Permission bits
             const uuidWrite = 'e659f3ff-ea98-11e3-ac10-0800200c9a66'; // Serial writes to board
@@ -123,41 +124,43 @@
 
                 try {
                     logInfo('Waiting for user input.');
-
                     const device = await navigator.bluetooth.requestDevice({
                         filters: [{ namePrefix: "ow", services: [uuidBoard] }]
                     });
 
                     logInfo(`Connecting to ${device.name}.`);
-
                     const server = await device.gatt.connect();
 
                     logInfo('Requesting primary service.')
-
                     const service = await server.getPrimaryService(uuidBoard);
 
                     logInfo('Requesting characteristics.');
-
                     const charArr = await service.getCharacteristics();
 
+                    const charHwVer = charArr.find(c => c.uuid === uuidHwVer);
                     const charFwVer = charArr.find(c => c.uuid === uuidFwVer);
                     const charPerms = charArr.find(c => c.uuid === uuidPerms);
                     const charWrite = charArr.find(c => c.uuid === uuidWrite);
 
-                    if (!charFwVer || !charPerms || !charWrite) {
+                    if (!charHwVer || !charFwVer || !charPerms || !charWrite) {
                         let log = "Missing characteristic(s): ";
+                        if (!charHwVer) log += "HwVersion ";
                         if (!charFwVer) log += "FwVersion ";
                         if (!charPerms) log += "Permissions ";
                         if (!charWrite) log += "SerialWrite ";
                         throw new Error(log);
                     }
 
-                    if (!charFwVer) throw new Error('Missing characteristic: FW Version');
-                    if (!charPerms) throw new Error('Missing characteristic: Permissions');
-                    if (!charWrite) throw new Error('Missing characteristic: Serial Write');
+                    const hwVer = (await charHwVer.readValue()).getUint16();
+                    logInfo(`Board reports HW ${hwVer}.`);
+
+                    if (5326 <= hwVer) {
+                        logError('-------------------------- WARNING --------------------------');
+                        logError('All attempts to flash HW:5326 have so far failed and bricked!');
+                        logError('-------------------------------------------------------------');
+                    }
 
                     const fwVer = (await charFwVer.readValue()).getUint16();
-
                     logInfo(`Board reports FW ${fwVer}.`);
 
                     if (fwVer < 5000 || fwVer >= 6000)
@@ -170,13 +173,11 @@
                         throw new Error('Firmware newer than 5100 has not been tested.');
 
                     logInfo('Sending authentication blob.');
-
                     for (const chunk of chunks(magicBlob, 20)) {
                         await charWrite.writeValueWithResponse(chunk);
                     }
 
                     logInfo('Waiting for board to respond.');
-
                     let unlocked = false;
                     for (let i = 0; i < 30; i++) {
                         if (((await charPerms.readValue()).getUint16() & 4) != 0) {
