@@ -87,6 +87,7 @@
             const uuidFwVer = 'e659f311-ea98-11e3-ac10-0800200c9a66'; // Firmware version
             const uuidPerms = 'e659f31f-ea98-11e3-ac10-0800200c9a66'; // Permission bits
             const uuidWrite = 'e659f3ff-ea98-11e3-ac10-0800200c9a66'; // Serial writes to board
+            const uuidError = 'e659f31c-ea98-11e3-ac10-0800200c9a66'; // Last error code
 
             // This magic blob was not extracted from firmware, not leaked, not retrieved through
             // illegitimate means, not "accidentally found", you name it. It's a legitimate blob,
@@ -110,6 +111,22 @@
                 33 4d 34 a9 aa 28 ec 4e dc cd ce a3 d5 3f 8e fe
                 c8 2f 41 8f c2 75 2e a4 ac d3 86 31 61 39 fd 9a
                 13`);
+
+            const waitForBlVersion = (charError) => new Promise(resolve => {
+                charError.startNotifications();
+                charError.addEventListener('characteristicvaluechanged', (event) => {
+                    const errorCode = event.target.value.getUint16();
+                    if (((errorCode >> 8) & 0xFF) === 32) {
+                        resolve(errorCode & 0xFF);
+                    }
+                });
+
+                setTimeout(() => {
+                    if(blVersion === -1) {
+                        reject('Timeout waiting for blVersion');
+                    }
+                }, 15000);
+            });
 
             async function onButtonClick() {
                 btnConnect.disabled = true;
@@ -141,13 +158,15 @@
                     const charFwVer = charArr.find(c => c.uuid === uuidFwVer);
                     const charPerms = charArr.find(c => c.uuid === uuidPerms);
                     const charWrite = charArr.find(c => c.uuid === uuidWrite);
+                    const charError = charArr.find(c => c.uuid === uuidError);
 
-                    if (!charHwVer || !charFwVer || !charPerms || !charWrite) {
+                    if (!charHwVer || !charFwVer || !charPerms || !charWrite || !charError) {
                         let log = "Missing characteristic(s): ";
                         if (!charHwVer) log += "HwVersion ";
                         if (!charFwVer) log += "FwVersion ";
                         if (!charPerms) log += "Permissions ";
                         if (!charWrite) log += "SerialWrite ";
+                        if (!charError) log += "ErrorCode ";
                         throw new Error(log);
                     }
 
@@ -165,10 +184,8 @@
 
                     if (fwVer < 5000 || fwVer >= 6000)
                         throw new Error('This tool only works with Pint / Pint X boards.');
-
                     if (fwVer < 5100)
                         throw new Error('Firmware older than 5100 do not need magic.');
-
                     if (fwVer > 5100)
                         throw new Error('Firmware newer than 5100 has not been tested.');
 
@@ -188,7 +205,23 @@
                     }
 
                     if (unlocked) {
-                        logSuccess("Unlocked FWU mode, ready to flash!");
+                        logInfo('Checking bootloader version.');
+
+                        const blVer = await waitForBlVersion(charError);
+                        const isPint = 5000 <= hwVer && hwVer < 6000;
+                        
+                        if (
+                            !( isPint && blVer === 6) &&
+                            !(isPintX && blVer === 7)
+                        ) {
+                            logError(`Unexpected bootloader version ${blVer} for ${isPint ? 'Pint' : 'PintX'}.`);
+                            logError("Flashing this board might brick it. You have been warned!")
+                        } else  {
+                            logSuccess('Unlocked FWU mode, ready to flash!');
+                        }
+
+                        // Send a keep alive to so the auth does not immediately expire
+                        charFwVer.writeValueWithResponse(new Uint16Array([fwVer]));
                     } else {
                         logError("Failed? Restart the board and try again.");
                     }
