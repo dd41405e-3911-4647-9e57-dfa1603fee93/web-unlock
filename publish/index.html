@@ -212,7 +212,7 @@
                         
                         if (
                             !( isPint && blVer === 6) &&
-                            !(isPintX && blVer === 7)
+                            !(!isPint && blVer === 7)
                         ) {
                             logError(`Unexpected bootloader version ${blVer} for ${isPint ? 'Pint' : 'PintX'}.`);
                             logError("Flashing this board might brick it. You have been warned!")
