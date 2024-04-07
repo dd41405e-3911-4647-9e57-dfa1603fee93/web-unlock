@@ -117,7 +117,7 @@
                         charError.startNotifications();
                         charError.addEventListener('characteristicvaluechanged', (event) => {
                             const errorCode = event.target.value.getUint16();
-                            if (((errorCode >> 8) & 0xFF) === 33) {
+                            if (((errorCode >> 8) & 0xFF) === 32) {
                                 resolve(errorCode & 0xFF);
                             }
                         });
