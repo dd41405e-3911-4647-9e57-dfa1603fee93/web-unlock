@@ -217,9 +217,9 @@
                             ) {
                                 logError(`Unexpected bootloader version ${blVer} for ${isPint ? 'Pint' : 'PintX'}.`);
                                 logError("Flashing this board might brick it. You have been warned!")
-                            } else  {
-                                logSuccess('Unlocked FWU mode, ready to flash!');
                             }
+
+                            logSuccess('Unlocked FWU mode, ready to flash!');
 
                             // Send a keep alive to so the auth does not immediately expire
                             await charFwVer.writeValueWithResponse(new Uint16Array([fwVer]))
