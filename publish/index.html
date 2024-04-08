@@ -154,10 +154,10 @@
                     const hwVer = (await charHwVer.readValue()).getUint16();
                     logInfo(`Board reports HW ${hwVer}.`);
 
-                    if (5326 <= hwVer) {
-                        logError('-------------------------- WARNING --------------------------');
-                        logError('All attempts to flash HW:5326 have so far failed and bricked!');
-                        logError('-------------------------------------------------------------');
+                    if (5325 <= hwVer && hwVer < 6000) {
+                        logError('-------------------------- WARNING! --------------------------');
+                        logError('All attempts to flash HW:5325+ have so far failed and bricked!');
+                        logError('--------------------------------------------------------------');
                     }
 
                     const fwVer = (await charFwVer.readValue()).getUint16();
