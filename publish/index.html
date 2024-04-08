@@ -232,11 +232,6 @@
                     }
 
                     logSuccess('Unlocked FWU mode, ready to flash!');
-
-                    // Ping the board once to keep auth around a bit longer.
-                    // This gives you a bit more time if your software can't do auth.
-                    await charFwVer.writeValueWithResponse(new Uint16Array([fwVer]));
-
                 } catch (error) {
                     logError(error.message);
                 } finally {
