@@ -83,8 +83,9 @@
             const delayMs = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
             const uuidBoard = 'e659f300-ea98-11e3-ac10-0800200c9a66'; // Board service
-            const uuidHwVer = 'e659f318-ea98-11e3-ac10-0800200c9a66'; // Hardware version
+            const uuidHBeat = 'e659f30b-ea98-11e3-ac10-0800200c9a66'; // Used as auth keepalive
             const uuidFwVer = 'e659f311-ea98-11e3-ac10-0800200c9a66'; // Firmware version
+            const uuidHwVer = 'e659f318-ea98-11e3-ac10-0800200c9a66'; // Hardware version
             const uuidError = 'e659f31c-ea98-11e3-ac10-0800200c9a66'; // Last error code
             const uuidPerms = 'e659f31f-ea98-11e3-ac10-0800200c9a66'; // Permission bits
             const uuidWrite = 'e659f3ff-ea98-11e3-ac10-0800200c9a66'; // Serial writes to board
@@ -162,19 +163,21 @@
                     logInfo('Requesting characteristics.');
                     const charArr = await service.getCharacteristics();
 
-                    const charHwVer = charArr.find(c => c.uuid === uuidHwVer);
+                    const charHBeat = charArr.find(c => c.uuid === uuidHBeat);
                     const charFwVer = charArr.find(c => c.uuid === uuidFwVer);
+                    const charHwVer = charArr.find(c => c.uuid === uuidHwVer);
+                    const charError = charArr.find(c => c.uuid === uuidError);
                     const charPerms = charArr.find(c => c.uuid === uuidPerms);
                     const charWrite = charArr.find(c => c.uuid === uuidWrite);
-                    const charError = charArr.find(c => c.uuid === uuidError);
 
-                    if (!charHwVer || !charFwVer || !charPerms || !charWrite || !charError) {
+                    if (!charHBeat || !charFwVer || !charHwVer || !charError || !charPerms || !charWrite) {
                         let log = "Missing characteristic(s): ";
-                        if (!charHwVer) log += "HwVersion ";
+                        if (!charHBeat) log += "HeartBeat ";
                         if (!charFwVer) log += "FwVersion ";
+                        if (!charHwVer) log += "HwVersion ";
+                        if (!charError) log += "ErrorCode ";
                         if (!charPerms) log += "Permissions ";
                         if (!charWrite) log += "SerialWrite ";
-                        if (!charError) log += "ErrorCode ";
                         throw new Error(log);
                     }
 
@@ -232,6 +235,10 @@
                     }
 
                     logSuccess('Unlocked FWU mode, ready to flash!');
+
+                    // Ping the board once to keep auth around a bit longer.
+                    // This gives you a bit more time if your software can't do auth.
+                    await charHBeat.writeValueWithResponse(fromHex('00 00'));
                 } catch (error) {
                     logError(error.message);
                 } finally {
