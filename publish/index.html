@@ -89,6 +89,14 @@
             const uuidWrite = 'e659f3ff-ea98-11e3-ac10-0800200c9a66'; // Serial writes to board
             const uuidError = 'e659f31c-ea98-11e3-ac10-0800200c9a66'; // Last error code
 
+            // We can *unlock* all boards on 5100, but newer boards have BLs that refuse to flash.
+            // This lets us match the bootloader version the board reports against versions we've
+            // seen before and warn the user if we think they might not be able to get out of FWU.
+            const blSupported = {
+                [true /*  Pint   */]: { 6: true },
+                [false /* Pint X */]: { 7: true },
+            };
+
             // This magic blob was not extracted from firmware, not leaked, not retrieved through
             // illegitimate means, not "accidentally found", you name it. It's a legitimate blob,
             // it just happens to unlock any Pint / Pint X at any time instead of one board once.
@@ -113,21 +121,19 @@
                 13`);
 
             const waitForBlVersion = (charError) => Promise.race([
-                    new Promise((resolve, reject) => {
-                        charError.startNotifications();
-                        charError.addEventListener('characteristicvaluechanged', (event) => {
-                            const errorCode = event.target.value.getUint16();
-                            if (((errorCode >> 8) & 0xFF) === 32) {
-                                resolve(errorCode & 0xFF);
-                            }
-                        });
-                    }),
-                    new Promise((resolve, reject) => {
-                        setTimeout(() => {
-                            reject(new Error('Timed out waiting for bootloader version'));
-                        }, 5000);
-                    })
-                ]);
+                new Promise((resolve, _) => {
+                    charError.startNotifications();
+                    charError.addEventListener('characteristicvaluechanged', (event) => {
+                        const errorCode = event.target.value.getUint16();
+                        if (((errorCode >> 8) & 0xFF) === 32) {
+                            resolve(errorCode & 0xFF);
+                        }
+                    });
+                }),
+                new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Timed out waiting for bootloader version.')), 5000)
+                }),
+            ]);
 
             async function onButtonClick() {
                 btnConnect.disabled = true;
@@ -140,6 +146,7 @@
                     return;
                 }
 
+                let gattServer;
                 try {
                     logInfo('Waiting for user input.');
                     const device = await navigator.bluetooth.requestDevice({
@@ -147,10 +154,10 @@
                     });
 
                     logInfo(`Connecting to ${device.name}.`);
-                    const server = await device.gatt.connect();
+                    gattServer = await device.gatt.connect();
 
                     logInfo('Requesting primary service.')
-                    const service = await server.getPrimaryService(uuidBoard);
+                    const service = await gattServer.getPrimaryService(uuidBoard);
 
                     logInfo('Requesting characteristics.');
                     const charArr = await service.getCharacteristics();
@@ -205,34 +212,37 @@
                         await delayMs(100);
                     }
 
-                    if (unlocked) {
-                        logInfo('Checking bootloader version.');
+                    if (!unlocked)
+                        throw new Error('Failed? Restart the board and try again.');
 
-                        await waitForBlVersion(charError).then(async (blVer) => {
-                            const isPint = 5000 <= hwVer && hwVer < 6000;
-                            
-                            if (
-                                !( isPint && blVer === 6) &&
-                                !(!isPint && blVer === 7)
-                            ) {
-                                logError(`Unexpected bootloader version ${blVer} for ${isPint ? 'Pint' : 'PintX'}.`);
-                                logError("Flashing this board might brick it. You have been warned!")
-                            }
+                    const blVer = await waitForBlVersion(charError);
 
-                            logSuccess('Unlocked FWU mode, ready to flash!');
+                    logInfo(`Board reports BL ${blVer}.`);
+                    const isPint = 5000 <= hwVer && hwVer < 6000;
+                    const seenBl = blSupported[isPint][blVer];
 
-                            // Send a keep alive to so the auth does not immediately expire
-                            await charFwVer.writeValueWithResponse(new Uint16Array([fwVer]))
-                        }).catch(error => {
-                            logError(error.message);
-                        });
-                    } else {
-                        logError("Failed? Restart the board and try again.");
+                    if (seenBl === undefined) {
+                        logError(`Unexpected bootloader version for a ${isPint ? 'Pint' : 'Pint X'}.`);
+                        logError("If you continue anyway you might brick your board. You have been warned!"); 
                     }
 
-                    server.disconnect();
+                    if (seenBl === false) {
+                        logError(`Your bootloader is known to be incompatible.`);
+                        logError("If you continue anyway you will most likely brick your board.");
+                    }
+
+                    logSuccess('Unlocked FWU mode, ready to flash!');
+
+                    // Ping the board once to keep auth around a bit longer.
+                    // This gives you a bit more time if your software can't do auth.
+                    await charFwVer.writeValueWithResponse(new Uint16Array([fwVer]));
+
                 } catch (error) {
                     logError(error.message);
+                } finally {
+                    if (gattServer) {
+                        gattServer.disconnect();
+                    }
                 }
 
                 btnConnect.disabled = false;
