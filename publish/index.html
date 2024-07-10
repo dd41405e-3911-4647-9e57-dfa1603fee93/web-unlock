@@ -226,15 +226,17 @@
 
                     if (seenBl === undefined) {
                         logError(`Unexpected bootloader version for a ${isPint ? 'Pint' : 'Pint X'}.`);
-                        logError("If you continue anyway you might brick your board. You have been warned!"); 
+                        logError("+-------------------------------------------------------+".toUpperCase());
+                        logError('| If you continue you will very likely brick your board |'.toUpperCase());
+                        logError("| We can't prevent you from trying anyway, please don't |".toUpperCase());
+                        logError("+-------------------------------------------------------+".toUpperCase());
+                    } else if (seenBl === false) {
+                        logError('Unlocked FWU mode, but your bootloader is known to be incompatible.');
+                        logError('If you continue you will very likely brick your board.'.toUpperCase());
+                        logError("We can't prevent you from trying anyway, please don't.".toUpperCase());
+                    } else {
+                        logSuccess('Unlocked FWU mode, ready to flash!');
                     }
-
-                    if (seenBl === false) {
-                        logError(`Your bootloader is known to be incompatible.`);
-                        logError("If you continue anyway you will most likely brick your board.");
-                    }
-
-                    logSuccess('Unlocked FWU mode, ready to flash!');
 
                     // Ping the board once to keep auth around a bit longer.
                     // This gives you a bit more time if your software can't do auth.
