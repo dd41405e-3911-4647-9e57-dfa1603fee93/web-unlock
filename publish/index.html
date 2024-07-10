@@ -95,7 +95,7 @@
             // seen before and warn the user if we think they might not be able to get out of FWU.
             const blSupported = {
                 [true /*  Pint   */]: { 6: true },
-                [false /* Pint X */]: { 7: true },
+                [false /* Pint X */]: { 7: true, 8: false },
             };
 
             // This magic blob was not extracted from firmware, not leaked, not retrieved through
@@ -224,16 +224,12 @@
                     const isPint = 5000 <= hwVer && hwVer < 6000;
                     const seenBl = blSupported[isPint][blVer];
 
-                    if (seenBl === undefined) {
-                        logError(`Unexpected bootloader version for a ${isPint ? 'Pint' : 'Pint X'}.`);
+                    if (goodBl !== true) {
+                        logError('Unlocked FWU mode, but your bootloader is not supported.');
                         logError("+-------------------------------------------------------+".toUpperCase());
                         logError('| If you continue you will very likely brick your board |'.toUpperCase());
                         logError("| We can't prevent you from trying anyway, please don't |".toUpperCase());
                         logError("+-------------------------------------------------------+".toUpperCase());
-                    } else if (seenBl === false) {
-                        logError('Unlocked FWU mode, but your bootloader is known to be incompatible.');
-                        logError('If you continue you will very likely brick your board.'.toUpperCase());
-                        logError("We can't prevent you from trying anyway, please don't.".toUpperCase());
                     } else {
                         logSuccess('Unlocked FWU mode, ready to flash!');
                     }
