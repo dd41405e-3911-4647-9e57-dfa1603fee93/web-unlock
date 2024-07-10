@@ -222,7 +222,7 @@
 
                     logInfo(`Board reports BL ${blVer}.`);
                     const isPint = 5000 <= hwVer && hwVer < 6000;
-                    const seenBl = blSupported[isPint][blVer];
+                    const goodBl = blSupported[isPint][blVer];
 
                     if (goodBl !== true) {
                         logError('Unlocked FWU mode, but your bootloader is not supported.');
