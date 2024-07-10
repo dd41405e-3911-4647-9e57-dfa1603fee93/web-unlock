@@ -225,7 +225,7 @@
                     const goodBl = blSupported[isPint][blVer];
 
                     if (goodBl !== true) {
-                        logError('Unlocked FWU mode, but your bootloader is not supported.');
+                        logError('Unlocked FWU mode, but your ${isPint ? 'Pint' : 'Pint X'} bootloader is not supported.');
                         logError("+-------------------------------------------------------+".toUpperCase());
                         logError('| If you continue you will very likely brick your board |'.toUpperCase());
                         logError("| We can't prevent you from trying anyway, please don't |".toUpperCase());
