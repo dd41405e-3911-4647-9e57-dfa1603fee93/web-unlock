@@ -198,7 +198,7 @@
                     if (fwVer < 5100)
                         throw new Error('Firmware older than 5100 do not need magic.');
                     if (fwVer > 5100)
-                        throw new Error('Firmware newer than 5100 has not been tested.');
+                        throw new Error('Firmware newer than 5100 is not supported.');
 
                     logInfo('Sending authentication blob.');
                     for (const chunk of chunks(magicBlob, 20)) {
