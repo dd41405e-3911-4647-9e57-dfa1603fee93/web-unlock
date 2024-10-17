@@ -197,8 +197,8 @@
                         throw new Error('This tool only works with Pint / Pint X boards.');
                     if (fwVer < 5100)
                         throw new Error('Firmware older than 5100 do not need magic.');
-                    if (fwVer > 5100)
-                        throw new Error('Firmware newer than 5100 is not supported.');
+                    if (fwVer >= 5200)
+                        throw new Error('Firmware 5200 and up is not supported.');
 
                     logInfo('Sending authentication blob.');
                     for (const chunk of chunks(magicBlob, 20)) {
