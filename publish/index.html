@@ -227,16 +227,24 @@
                     if (goodBl !== true) {
                         logError(`Unlocked FWU mode, but your ${isPint ? 'Pint' : 'Pint X'} is not supported.`);
                         logError("+-------------------------------------------------------+".toUpperCase());
-                        logError('| If you continue you will very likely brick your board |'.toUpperCase());
-                        logError("| We can't prevent you from trying anyway, please don't |".toUpperCase());
+                        logError('| if you continue you will very likely brick your board |'.toUpperCase());
+                        logError("| we can't prevent you from trying anyway, please don't |".toUpperCase());
+                        logError("+-------------------------------------------------------+".toUpperCase());
+                        logError("| every time someone ignores this warning and then asks |".toUpperCase());
+                        logError("| for help, raini dies a little inside - don't kill him |".toUpperCase());
                         logError("+-------------------------------------------------------+".toUpperCase());
                     } else {
                         logSuccess('Unlocked FWU mode, ready to flash!');
                     }
 
-                    // Ping the board once to keep auth around a bit longer.
-                    // This gives you a bit more time if your software can't do auth.
-                    await charHBeat.writeValueWithResponse(fromHex('00 00'));
+                    // If we _know_ the bootloader can't be flashed, this branch won't be taken.
+                    // Auth will take a bit to time out either way though so someone determined is just going
+                    // to snipe it anyway if they really want to, but we might as well make it hard for them.
+                    if (goodBl !== false) {
+                        // Ping the board once to keep auth around a bit longer.
+                        // This gives you a bit more time if your software can't do auth.
+                        await charHBeat.writeValueWithResponse(fromHex('00 00'));
+                    }
                 } catch (error) {
                     logError(error.message);
                 } finally {
